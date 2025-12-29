@@ -108,18 +108,42 @@
         }
         .toast.error { border-left-color: #ef4444; }
         .toast.success { border-left-color: #10b981; }
+        .toast.warning { border-left-color: #f59e0b; }
         @keyframes slideIn {
             from { transform: translateY(100%); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
+        }
+        .demo-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            background-color: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-radius: 9999px;
+            color: #b45309;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 10px;
         }
     </style>
 </head>
 <body class="antialiased text-gray-800">
 
     <div class="container mx-auto max-w-6xl p-4">
-        <div class="bg-white rounded-2xl shadow-xl p-4 md:p-8 border border-gray-100">
+        <div class="bg-white rounded-2xl shadow-xl p-4 md:p-8 border border-gray-100 relative">
+            
+            <!-- Settings Button -->
+            <button id="settings-btn" class="absolute top-4 right-4 text-gray-400 hover:text-indigo-600 transition-colors p-2 z-10" title="API Key Settings">
+                <i class="fas fa-cog text-xl"></i>
+            </button>
+
             <div class="text-center mb-6">
-                <h1 class="text-2xl md:text-4xl font-bold text-gray-900 tracking-tight">Smart Product Data</h1>
+                <h1 class="text-2xl md:text-4xl font-bold text-gray-900 tracking-tight flex justify-center items-center flex-wrap gap-2">
+                    Smart Product Data
+                    <span id="demo-indicator" class="demo-badge hidden">
+                        <i class="fas fa-flask mr-1"></i> Demo
+                    </span>
+                </h1>
                 <p class="text-gray-500 mt-2 text-sm md:text-base">Capture > Extract > Automate</p>
             </div>
             
@@ -203,7 +227,7 @@
             <div class="space-y-6">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Start Row Index</label>
-                    <input type="number" id="json-start-index" value="11" min="1" class="w-full border-gray-300 bg-gray-50 rounded-lg shadow-sm border p-2.5 focus:ring-indigo-500 outline-none">
+                    <input type="number" id="json-start-index" value="11" min="1" class="w-full border-gray-300 bg-gray-50 rounded-lg shadow-sm border p-2.5 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
                     <p class="text-xs text-gray-500 mt-1">First row number (e.g. 11 for r11).</p>
                 </div>
 
@@ -362,7 +386,9 @@
             downloadJsonFinalBtn: document.getElementById('download-json-final-btn'),
             jsonTempMin: document.getElementById('json-temp-min'),
             jsonTempMax: document.getElementById('json-temp-max'),
-            jsonStartIndex: document.getElementById('json-start-index')
+            jsonStartIndex: document.getElementById('json-start-index'),
+            settingsBtn: document.getElementById('settings-btn'),
+            demoIndicator: document.getElementById('demo-indicator')
         };
 
         let mediaStream = null;
@@ -430,6 +456,32 @@
             processQueue();
         }
 
+        // --- MOCK DATA GENERATOR (Fallback) ---
+        function generateMockData() {
+            // Pick random product from catalogs
+            const allProducts = { ...DROPDOWN_CATALOG, ...CORRECTIVE_CATALOG };
+            const keys = Object.keys(allProducts);
+            const randomKey = keys[Math.floor(Math.random() * keys.length)];
+            const prod = allProducts[randomKey];
+            
+            const today = new Date();
+            const prodDate = new Date(today);
+            prodDate.setMonth(today.getMonth() - Math.floor(Math.random() * 6) - 1);
+            const expDate = new Date(today);
+            expDate.setMonth(today.getMonth() + Math.floor(Math.random() * 6) + 6);
+            
+            const format = (d) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+
+            return {
+                productCode: randomKey,
+                productName: prod.name,
+                barcode: prod.barcode || "628" + Math.floor(Math.random() * 10000000000),
+                productionDate: format(prodDate),
+                expiryDate: format(expDate),
+                batchNumber: "BN" + (Math.floor(Math.random() * 90000) + 10000)
+            };
+        }
+
         function processQueue() {
             while (activeProcessingCount < MAX_CONCURRENT_REQUESTS && imageQueue.length > 0) {
                 activeProcessingCount++;
@@ -442,6 +494,7 @@
 
                 callGeminiAPI(base64Data.split(',')[1]) // Send only base64 string part
                     .then(result => {
+                        // Apply identification logic even to mock data
                         if (result) {
                             const rawCode = result.productCode ? result.productCode.trim() : "";
                             const rawBarcode = result.barcode ? result.barcode.trim() : "";
@@ -496,9 +549,21 @@
         }
 
         async function callGeminiAPI(rawBase64) {
-             const apiKey = ""; // Environment injected
+             // 1. Try to find a valid key from local storage
+             let finalApiKey = localStorage.getItem("gemini_api_key");
+             
+             // 2. Fallback to Demo Mode if no key
+             if (!finalApiKey) {
+                 dom.demoIndicator.classList.remove('hidden');
+                 await new Promise(resolve => setTimeout(resolve, 1000)); // Sim delay
+                 console.log("No API Key detected. Using Mock Data.");
+                 return generateMockData();
+             } else {
+                 dom.demoIndicator.classList.add('hidden');
+             }
+
              const modelName = "gemini-2.5-flash-preview-09-2025";
-             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${finalApiKey}`;
              
              const detailedPrompt = `Extract: 1.Product Code(1006.../9...) 2.Name 3.Barcode 4.Prod Date(DD/MM/YYYY) 5.Exp Date(DD/MM/YYYY) 6.Batch. Critical: If Code missing use Barcode.`;
 
@@ -521,23 +586,26 @@
                  }
              };
 
-             const delays = [1000, 2000];
-             for (let i = 0; i <= delays.length; i++) {
-                 try {
-                     const response = await fetch(apiUrl, { 
-                         method: 'POST', 
-                         headers: { 'Content-Type': 'application/json' }, 
-                         body: JSON.stringify(payload) 
-                     });
-                     if (response.ok) {
-                         const result = await response.json();
-                         let jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                         if (jsonText) return JSON.parse(jsonText);
-                         return null;
-                     } 
-                 } catch (e) { if(i===delays.length) throw e; await new Promise(r=>setTimeout(r, delays[i])); }
+             try {
+                 const response = await fetch(apiUrl, { 
+                     method: 'POST', 
+                     headers: { 'Content-Type': 'application/json' }, 
+                     body: JSON.stringify(payload) 
+                 });
+                 if (response.ok) {
+                     const result = await response.json();
+                     let jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                     if (jsonText) return JSON.parse(jsonText);
+                     return null;
+                 } else {
+                     console.warn("API Error, falling back to mock data");
+                     showToast("API Failed: Using Demo Data", "warning");
+                     return generateMockData();
+                 }
+             } catch (e) { 
+                 console.error("Fetch failed", e);
+                 return generateMockData(); 
              }
-             return null;
         }
 
         // --- UI Render Functions ---
@@ -703,6 +771,26 @@
             dom.jsonModal.classList.remove('flex');
             showToast("JSON downloaded!", "success");
         }
+
+        // --- Settings Handler ---
+        dom.settingsBtn.addEventListener('click', () => {
+            const currentKey = localStorage.getItem("gemini_api_key") || "";
+            const newKey = prompt("Enter Google Gemini API Key (leave empty for Demo Mode):", currentKey);
+            if (newKey !== null) {
+                if (newKey.trim()) {
+                    localStorage.setItem("gemini_api_key", newKey.trim());
+                    dom.demoIndicator.classList.add('hidden');
+                    showToast("API Key Saved", "success");
+                } else {
+                    localStorage.removeItem("gemini_api_key");
+                    dom.demoIndicator.classList.remove('hidden');
+                    showToast("Demo Mode Active");
+                }
+            }
+        });
+
+        // Initialize Demo State
+        if (!localStorage.getItem("gemini_api_key")) dom.demoIndicator.classList.remove('hidden');
 
         // --- Event Listeners ---
         dom.clearBtn.addEventListener('click', () => {
