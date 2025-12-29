@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Smart Product Data Extractor</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- jsPDF Core Library -->
@@ -15,7 +15,9 @@
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f3f4f6;
+            -webkit-tap-highlight-color: transparent;
         }
+        /* Mobile optimization for loader */
         .loader {
             border: 2px solid #e5e7eb;
             border-top: 2px solid #4f46e5;
@@ -29,10 +31,9 @@
             100% { transform: rotate(360deg); }
         }
         #camera-modal, #json-modal {
-            background-color: rgba(0,0,0,0.85);
+            background-color: rgba(0,0,0,0.9);
             backdrop-filter: blur(4px);
         }
-        /* Removed scaleX(-1) so rear camera text is readable */
         #camera-video {
             object-fit: cover;
         }
@@ -45,279 +46,298 @@
         }
         .editable-input {
             width: 100%;
+            min-width: 80px; /* Prevent squishing on mobile */
             border: 1px solid transparent;
-            padding: 6px 8px;
+            padding: 8px;
             border-radius: 6px;
             background-color: transparent;
             transition: all 0.2s ease-in-out;
-        }
-        .editable-input:hover {
-            background-color: #f9fafb;
-            border-color: #d1d5db;
+            font-size: 14px;
         }
         .editable-input:focus {
-            outline: 2px solid transparent;
-            outline-offset: 2px;
+            outline: none;
             border-color: #4f46e5;
             background-color: #ffffff;
-            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.5);
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
         }
-        .status-icon {
-            width: 20px;
-            height: 20px;
-            margin-right: 8px;
+        /* Table scroll optimization */
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
         }
         .retry-btn {
             background-color: #4f46e5;
             color: white;
             border: none;
             border-radius: 5px;
-            padding: 4px 10px;
+            padding: 6px 12px; /* Larger touch target */
             font-size: 12px;
             font-weight: 500;
             cursor: pointer;
-            transition: background-color 0.2s;
             margin-left: 8px;
-        }
-        .retry-btn:hover {
-            background-color: #4338ca;
         }
         .retry-btn:disabled {
             background-color: #a5b4fc;
-            cursor: not-allowed;
         }
-        /* Custom Toast Notification */
         #toast-container {
             position: fixed;
             bottom: 20px;
+            left: 20px;
             right: 20px;
-            z-index: 1000;
+            z-index: 5000;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         .toast {
+            pointer-events: auto;
             background: white;
             padding: 12px 24px;
             border-radius: 8px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
             margin-top: 10px;
             display: flex;
             align-items: center;
             animation: slideIn 0.3s ease-out;
             border-left: 4px solid #4f46e5;
-            max-width: 300px;
+            max-width: 100%;
+            width: fit-content;
         }
         .toast.error { border-left-color: #ef4444; }
         .toast.success { border-left-color: #10b981; }
         @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
     </style>
 </head>
 <body class="antialiased text-gray-800">
 
-    <div class="container mx-auto max-w-6xl p-4 md:p-8">
-        <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 border border-gray-100">
-            <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4">
-                    <i class="fas fa-magic text-2xl"></i>
-                </div>
-                <h1 class="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">Smart Product Data Extractor</h1>
-                <p class="text-gray-500 mt-3 text-lg">Automatically extract product details via Code Lookup or AI label reading.</p>
+    <div class="container mx-auto max-w-6xl p-4">
+        <div class="bg-white rounded-2xl shadow-xl p-4 md:p-8 border border-gray-100">
+            <div class="text-center mb-6">
+                <h1 class="text-2xl md:text-4xl font-bold text-gray-900 tracking-tight">Smart Product Data</h1>
+                <p class="text-gray-500 mt-2 text-sm md:text-base">Capture > Extract > Automate</p>
             </div>
             
             <div id="notification-area" class="text-center text-sm font-medium h-6 mb-4 transition-colors duration-300"></div>
 
-            <div class="flex flex-col sm:flex-row justify-center items-center gap-4 mb-8">
-                <label for="image-upload-input" class="w-full sm:w-auto cursor-pointer inline-flex justify-center items-center py-3 px-6 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition-all transform hover:-translate-y-0.5 active:translate-y-0">
-                    <i class="fas fa-upload mr-2"></i>
-                    Upload Images
+            <div class="flex flex-col sm:flex-row justify-center items-center gap-3 mb-6">
+                <label for="image-upload-input" class="w-full sm:w-auto cursor-pointer inline-flex justify-center items-center py-3 px-6 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 transition-all">
+                    <i class="fas fa-upload mr-2"></i> Upload
                 </label>
                 <input id="image-upload-input" type="file" class="hidden" accept="image/*" multiple>
                 
-                <button id="camera-btn" class="w-full sm:w-auto inline-flex justify-center items-center py-3 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-all transform hover:-translate-y-0.5 active:translate-y-0">
-                    <i class="fas fa-camera mr-2"></i>
-                    Use Camera
+                <button id="camera-btn" class="w-full sm:w-auto inline-flex justify-center items-center py-3 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 active:bg-gray-100 transition-all">
+                    <i class="fas fa-camera mr-2"></i> Camera
                 </button>
             </div>
 
-            <div class="overflow-hidden bg-gray-50 rounded-xl border border-gray-200">
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-100">
-                            <tr>
-                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Preview</th>
-                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Prod. Code</th>
-                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Product Name</th>
-                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Barcode</th>
-                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Prod. Date</th>
-                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Expiry Date</th>
-                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Batch No.</th>
-                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="results-table-body" class="bg-white divide-y divide-gray-200"></tbody>
-                    </table>
-                </div>
+            <div class="table-container bg-gray-50 border border-gray-200">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Img</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Code</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Name</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Barcode</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Prod</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Exp</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Batch</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">State</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+                </table>
                  
-                 <div id="no-data-msg" class="text-center text-gray-500 py-16">
+                 <div id="no-data-msg" class="text-center text-gray-500 py-12">
                     <div class="mx-auto h-12 w-12 text-gray-300 mb-3">
-                        <i class="far fa-images text-5xl"></i>
+                        <i class="far fa-images text-4xl"></i>
                     </div>
-                    <h3 class="mt-2 text-sm font-medium text-gray-900">No images added</h3>
-                    <p class="mt-1 text-sm text-gray-500">Get started by uploading an image or using the camera.</p>
+                    <p class="text-sm">Upload images to start.</p>
                  </div>
             </div>
             
-            <div class="mt-8 flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-100">
-                 <button id="json-btn" class="w-full sm:w-auto inline-flex justify-center items-center py-2.5 px-5 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed transition-colors" disabled>
-                     <i class="fas fa-code mr-2"></i> Automation JSON
+            <div class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 pt-6 border-t border-gray-100">
+                 <button id="json-btn" class="w-full justify-center items-center py-2.5 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex" disabled>
+                     <i class="fas fa-code mr-2"></i> JSON
                  </button>
-                 <button id="csv-btn" class="w-full sm:w-auto inline-flex justify-center items-center py-2.5 px-5 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 disabled:cursor-not-allowed transition-colors" disabled>
-                     <i class="fas fa-file-csv mr-2"></i> Export to CSV
+                 <button id="csv-btn" class="w-full justify-center items-center py-2.5 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex" disabled>
+                     <i class="fas fa-file-csv mr-2"></i> CSV
                  </button>
-                 <button id="pdf-btn" class="w-full sm:w-auto inline-flex justify-center items-center py-2.5 px-5 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-red-600 hover:bg-red-700 disabled:bg-red-300 disabled:cursor-not-allowed transition-colors" disabled>
-                     <i class="fas fa-file-pdf mr-2"></i> Generate PDF
+                 <button id="pdf-btn" class="w-full justify-center items-center py-2.5 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex" disabled>
+                     <i class="fas fa-file-pdf mr-2"></i> PDF
                  </button>
-                 <button id="clear-btn" class="w-full sm:w-auto inline-flex justify-center items-center py-2.5 px-5 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-                     Clear All
+                 <button id="clear-btn" class="w-full justify-center items-center py-2.5 px-4 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 flex">
+                     Clear
                  </button>
             </div>
         </div>
     </div>
 
     <!-- Camera Modal -->
-    <div id="camera-modal" class="fixed inset-0 z-50 items-center justify-center hidden p-4">
-        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden max-w-lg w-full relative flex flex-col max-h-[90vh]">
-            <div class="relative bg-black flex-grow flex items-center justify-center overflow-hidden">
+    <div id="camera-modal" class="fixed inset-0 z-50 items-center justify-center hidden p-4 flex">
+        <div class="bg-black rounded-2xl overflow-hidden max-w-md w-full relative flex flex-col h-[80vh]">
+            <div class="relative flex-grow flex items-center justify-center overflow-hidden">
                 <video id="camera-video" class="w-full h-full" autoplay playsinline></video>
                 <div id="flash-overlay" class="absolute inset-0 bg-white opacity-0 pointer-events-none"></div>
             </div>
-            <div class="p-6 bg-white flex justify-center gap-6">
-                <button id="close-camera-btn" class="py-3 px-6 bg-gray-100 text-gray-700 font-medium rounded-full hover:bg-gray-200 transition-colors min-w-[100px]">Cancel</button>
-                <button id="capture-btn" class="py-3 px-6 bg-indigo-600 text-white font-medium rounded-full hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all transform active:scale-95 min-w-[100px] flex items-center justify-center">
-                    <i class="fas fa-camera mr-2"></i> Capture
+            <div class="p-6 bg-gray-900 flex justify-center gap-8 items-center">
+                <button id="close-camera-btn" class="text-white hover:text-gray-300">
+                    <i class="fas fa-times text-2xl"></i>
                 </button>
+                <button id="capture-btn" class="h-16 w-16 bg-white rounded-full border-4 border-gray-300 active:scale-95 transition-transform"></button>
+                <div class="w-6"></div> <!-- Spacer -->
             </div>
         </div>
     </div>
     
     <!-- JSON Settings Modal -->
     <div id="json-modal" class="fixed inset-0 z-50 items-center justify-center hidden p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-[slideIn_0.2s_ease-out]">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-[slideIn_0.2s_ease-out] overflow-y-auto max-h-[90vh]">
             <h3 class="text-xl font-bold text-gray-900 mb-5">Automation Settings</h3>
             
-            <div class="space-y-5">
+            <div class="space-y-6">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Start Row Index</label>
-                    <input type="number" id="json-start-index" value="1" min="1" class="w-full border-gray-300 bg-gray-50 rounded-lg shadow-sm border p-2.5 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
-                    <p class="text-xs text-gray-500 mt-1">IDs will start counting from this number (e.g., r1, datepicker1).</p>
+                    <input type="number" id="json-start-index" value="11" min="1" class="w-full border-gray-300 bg-gray-50 rounded-lg shadow-sm border p-2.5 focus:ring-indigo-500 outline-none">
+                    <p class="text-xs text-gray-500 mt-1">First row number (e.g. 11 for r11).</p>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Global Time</label>
-                    <input type="time" id="json-time" value="10:20" class="w-full border-gray-300 bg-gray-50 rounded-lg shadow-sm border p-2.5 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
-                    <p class="text-xs text-gray-500 mt-1">This time will be applied to all entries.</p>
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Truck Temperature</label>
-                    <input type="text" id="json-truck-temp" value="-18.2C" class="w-full border-gray-300 bg-gray-50 rounded-lg shadow-sm border p-2.5 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Prod. Temp Min</label>
-                        <input type="number" id="json-temp-min" value="-18.5" step="0.1" class="w-full border-gray-300 bg-gray-50 rounded-lg shadow-sm border p-2.5 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Prod. Temp Max</label>
-                        <input type="number" id="json-temp-max" value="-17.0" step="0.1" class="w-full border-gray-300 bg-gray-50 rounded-lg shadow-sm border p-2.5 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <h4 class="text-sm font-bold text-blue-800 mb-3 uppercase flex items-center">
+                        <i class="fas fa-snowflake mr-2"></i> Frozen Config
+                    </h4>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Prod. Min (°C)</label>
+                            <input type="number" id="json-temp-min" value="-20.8" step="0.1" class="w-full border-gray-300 bg-white rounded-lg p-2 text-sm outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Prod. Max (°C)</label>
+                            <input type="number" id="json-temp-max" value="-18.0" step="0.1" class="w-full border-gray-300 bg-white rounded-lg p-2 text-sm outline-none">
+                        </div>
                     </div>
                 </div>
-                 <p class="text-xs text-gray-500 italic border-l-2 border-indigo-400 pl-2">Product temperature will be randomized between Min and Max for each item.</p>
+
+                <div class="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
+                    <strong>Logic Applied:</strong> Frozen items first, then Chilled.<br>
+                    Prompts appear before each group to batch-fill Time and Truck Temps.
+                </div>
             </div>
 
             <div class="mt-8 flex justify-end gap-3">
-                <button id="close-json-btn" class="px-5 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
-                <button id="download-json-final-btn" class="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-colors flex items-center">
-                    <i class="fas fa-download mr-2"></i> Download JSON
+                <button id="close-json-btn" class="px-5 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200">Cancel</button>
+                <button id="download-json-final-btn" class="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-lg flex items-center">
+                    <i class="fas fa-download mr-2"></i> Download
                 </button>
             </div>
         </div>
     </div>
 
-    <canvas id="camera-canvas" class="hidden"></canvas>
+    <!-- Hidden canvas for resizing -->
+    <canvas id="process-canvas" class="hidden"></canvas>
     <div id="toast-container"></div>
 
     <script>
         // Use global scope for jsPDF since it's loaded via CDN
         const { jsPDF } = window.jspdf;
 
-        // --- Product Catalog Definition ---
-        const PRODUCT_CATALOG = {
-            "1006000003": "ALBAIK CHICKEN SPICY MARINATED",
-            "1006000020": "ALBAIK CHICKEN FILLET NUGGETS",
-            "1006000021": "ALBAIK CHICKEN FILLET NUGGETS SPICY",
-            "1006000022": "ALBAIK CHICKEN FILLET SUPER",
-            "1006000023": "ALBAIK CHICKEN FILLET SUPER SPICY",
-            "1006000024": "ALBAIK CHICKEN FINGER",
-            "1006000025": "ALBAIK CHICKEN FILLET NUGGETS HAJJ",
-            "1006000026": "ALBAIK CHICKEN FILLET BURGER",
-            "1006000027": "ALBAIK CHICKEN FILLET BURGER SPICY",
-            "1006000028": "ALBAIK CHICKEN FILLET SUPER XT",
-            "1006000029": "ALBAIK CHICKEN FILLET SUPER SPICY XT",
-            "1006000030": "ALBAIK FISH FILLET NUGGETS",
-            "1006000031": "ALBAIK FISH FILLET SUPER",
-            "1006000032": "ALBAIK FISH FILLET NUGGETS SPICY",
-            "1006000033": "ALBAIK FISH FILLET SUPER SPICY",
-            "1006000034": "ALBAIK SHRIMPS JUMBO",
-            "1006000035": "ALBAIK SHRIMPS VALUE",
-            "1006000036": "ALBAIK SANDWICH SHRIMPS",
-            "1006000037": "ALBAIK HOMMOS DIP PORTION",
-            "1006000038": "ALBAIK GARLIC SMALL PORTION",
-            "1006000039": "ALBAIK GARLIC LARGE PORTION",
-            "1006000040": "ALBAIK COCKTAIL SMALL PORTION",
-            "1006000041": "ALBAIK COCKTAIL LARGE PORTION",
-            "1006000042": "ALBAIK NUGGETS SAUCE PORTION",
-            "1006000043": "ALBAIK GARLIC SUPER SAUCE",
-            "1006000044": "ALBAIK SHRIMPS / CFB SUPER SAUCE",
-            "1006000045": "ALBAIK LIGHT TARTAR SAUCE",
-            "1006000046": "ALBAIK FISH SUPER SAUCE",
-            "1006000048": "ALBAIK COLESLAW SAUCE",
-            "1006000049": "ALBAIK CFB SPICY SUPER SAUCE",
-            "1006000050": "ALBAIK COLESLAW PORTION",
-            "1006000051": "ALBAIK COLESLAW VEGETABLES SANDWICH",
-            "1006000052": "ALBAIK COLESLAW VEGETABLES BULK",
-            "1006000053": "ALBAIK PICKLES CUCUMBER",
-            "1006000054": "ALBAIK PICKLES CUCUMBER SPICY",
-            "1006000055": "ALBAIK PICKLES CUCUMBER SWEET",
-            "1006000056": "ALBAIK GCF SAUCE",
-            "941110": "ketchup sachets",
-            "930100": "Ice-Cream Souse, Chocolate - Bottle 1 ltr",
-            "930200": "Ice-Cream Souse, Strawberry -Bottle 1 ltr",
-            "910005": "Pepsi - can-330 ml",
-            "910006": "Pepsi - Diet -can 330 ml",
-            "910007": "Miranda -can -330 ml",
-            "910008": "7 up -can -330 ml",
-            "910009": "Soft Drinks",
-            "910120": "Pepsi - Ordinary -Bottle 400 ml",
-            "910121": "Pepsi - Diet -Bottle 400 ml",
-            "910122": "Miranda -Ordinary -Bottle 400 ml",
-            "910123": "7 up - Ordinary -Bottle 400 ml",
-            "912479": "Citrus -can -330 ml",
-            "910004": "Lipton Ice Tea-can",
-            "911120": "Fresh Orange almarai Juice 200 ml",
-            "911121": "Fresh Apple almarai Juice 200 ml",
-            "911122": "Fresh mango almarai Juice 200 ml",
-            "911123": "Fresh Mix Fruit almarai Juice 200 ml",
-            "911124": "Fresh mix berry almarai Juice 200 ml",
-            "911130": "Fresh Orange with pulp almarai Juice 300 ml",
-            "911131": "Fresh Mango with pulp almarai Juice 300 ml",
-            "911132": "Fresh Apple almarai Juice 300 ml",
-            "911133": "Fresh Straberry almarai juice 300 ml",
-            "911134": "Fresh Fruit Cocktail almarai juice 300 ml",
-            "913000": "Mineral Water (For sale)- Bottle 0.6ltr",
-            "913100": "Mineral water (For free) - Bottle 19ltr"
+        // --- Efficient Data Store (Map for O(1) access, not in DOM) ---
+        const imageDataStore = new Map();
+
+        // --- Configuration Lists ---
+        const CHILLED_PRODUCT_CODES = [
+            "1006000037", "1006000038", "1006000039", "1006000040", "1006000041", "1006000042",
+            "1006000043", "1006000044", "1006000045", "1006000046", "1006000048",
+            "1006000049", "1006000050", "1006000051", "1006000052", "1006000053",
+            "1006000054", "1006000055", "1006000056", 
+            "1006000215", "1006000216", 
+            "911120", "911121", "911122", "911123", "911124", "911130", "911131",
+            "911132", "911133", "911134", "910005", "910006", "910007", "910008",
+            "910009", "910120", "910121", "910122", "910123", "912479", "910004",
+            "930100", "930200", "941110", "913000", "913100"
+        ];
+
+        // --- Data Sources ---
+        const DROPDOWN_CATALOG = {
+            "1006000020": { name: "ALBAIK CHICKEN FILLET NUGGETS", barcode: "6287031260065" },
+            "1006000021": { name: "ALBAIK CHICKEN FILLET NUGGETS SPICY", barcode: "6287031260066" },
+            "1006000022": { name: "ALBAIK CHICKEN FILLET SUPER", barcode: "6287031250077" },
+            "1006000023": { name: "ALBAIK CHICKEN FILLET SUPER SPICY", barcode: "6287031250084" },
+            "1006000024": { name: "ALBAIK CHICKEN FINGER", barcode: "6287031250091" },
+            "1006000026": { name: "ALBAIK CHICKEN FILLET BURGER", barcode: "6287031250107" },
+            "1006000027": { name: "ALBAIK CHICKEN FILLET BURGER SPICY", barcode: "6287031250114" },
+            "1006000028": { name: "ALBAIK CHICKEN FILLET SUPER XT", barcode: "6287031250121" },
+            "1006000029": { name: "ALBAIK CHICKEN FILLET SUPER SPICY XT", barcode: "6287031250138" },
+            "1006000030": { name: "ALBAIK FISH FILLET NUGGETS", barcode: "6287031250145" },
+            "1006000031": { name: "ALBAIK FISH FILLET SUPER", barcode: "6287031250152" },
+            "1006000032": { name: "ALBAIK FISH FILLET NUGGETS SPICY", barcode: "6287031250268" },
+            "1006000033": { name: "ALBAIK FISH FILLET SUPER SPICY", barcode: "6287031250275" },
+            "1006000034": { name: "ALBAIK SHRIMPS JUMBO", barcode: "6287031250169" },
+            "1006000035": { name: "ALBAIK SHRIMPS VALUE", barcode: "6287031250176" },
+            "1006000036": { name: "ALBAIK SANDWICH SHRIMPS", barcode: "6287031250183" },
+            "1006000037": { name: "ALBAIK HOMMOS DIP PORTION", barcode: "6287031250282" },
+            "1006000038": { name: "ALBAIK GARLIC SMALL PORTION", barcode: "6287031250299" },
+            "1006000039": { name: "ALBAIK GARLIC LARGE PORTION", barcode: "6287031250305" },
+            "1006000040": { name: "ALBAIK COCKTAIL SMALL PORTION", barcode: "6287031250312" },
+            "1006000041": { name: "ALBAIK COCKTAIL LARGE PORTION", barcode: "6287031250329" },
+            "1006000042": { name: "ALBAIK NUGGETS SAUCE PORTION", barcode: "6287031250336" },
+            "1006000043": { name: "ALBAIK GARLIC SUPER SAUCE", barcode: "6287031250343" },
+            "1006000044": { name: "ALBAIK SHRIMPS / CFB SUPER SAUCE", barcode: "6287031250350" },
+            "1006000045": { name: "ALBAIK LIGHT TARTAR SAUCE", barcode: "6287031250367" },
+            "1006000046": { name: "ALBAIK FISH SUPER SAUCE", barcode: "6287031250374" },
+            "1006000048": { name: "ALBAIK COLESLAW SAUCE", barcode: "6287031250398" },
+            "1006000049": { name: "ALBAIK CFB SPICY SUPER SAUCE", barcode: "6287031250404" },
+            "1006000050": { name: "ALBAIK COLESLAW PORTION", barcode: "6287031250411" },
+            "1006000051": { name: "ALBAIK COLESLAW VEGETABLES SANDWICH", barcode: "6287031250428" },
+            "1006000052": { name: "ALBAIK COLESLAW VEGETABLES BULK", barcode: "6287031250435" },
+            "1006000053": { name: "ALBAIK PICKLES CUCUMBER", barcode: "6287031250442" },
+            "1006000054": { name: "ALBAIK PICKLES CUCUMBER SPICY", barcode: "6287031250466" },
+            "1006000055": { name: "ALBAIK PICKLES CUCUMBER SWEET", barcode: "6287031250459" },
+            "1006000056": { name: "ALBAIK GCF SAUCE", barcode: "6287031250473" },
+            "1006000057": { name: "ALBAIK FROZEN CHICKEN FILLET", barcode: "6287031250183" },
+            "1006000094": { name: "ALBAIK Falafel Super Fillet", barcode: "6287031250220" },
+            "1006000095": { name: "ALBAIK Marinated Chicken Strips", barcode: "6287031250206" },
+            "1006000099": { name: "ALBAIK MARINATED CHICKEN STRIPS SPICY", barcode: "6287031250213" },
+            "1006000125": { name: "ALBAIK Falafel Nuggets", barcode: "6287031250237" },
+            "1006000196": { name: "ALBAIK Boneless Thighs Breaded", barcode: "6287031250619" },
+            "1006000197": { name: "ALBAIK Boneless Drumsticks Breaded", barcode: "6287031250602" },
+            "1006000198": { name: "ALBAIK Chicken Strips Breaded", barcode: "6287031250664" }
+        };
+
+        const CORRECTIVE_CATALOG = {
+            "1006000215": { name: "ALBAIK Light Tartar Sauce", barcode: "6287031251135" },
+            "1006000216": { name: "ALBAIK Pickles Cucumber Diced Sweet", barcode: "6287031251173" },
+            "941110": { name: "ketchup sachets", barcode: "6287031250480" },
+            "930100": { name: "Ice-Cream Souse, Chocolate - Bottle 1 ltr", barcode: "6287031250497" },
+            "930200": { name: "Ice-Cream Souse, Strawberry -Bottle 1 ltr", barcode: "6287031250503" },
+            "910005": { name: "Pepsi - can-330 ml", barcode: "6281033000013" },
+            "910006": { name: "Pepsi - Diet -can 330 ml", barcode: "6281033000020" },
+            "910007": { name: "Miranda -can -330 ml", barcode: "6281033000037" },
+            "910008": { name: "7 up -can -330 ml", barcode: "6281033000044" },
+            "910009": { name: "Soft Drinks", barcode: "" },
+            "910120": { name: "Pepsi - Ordinary -Bottle 400 ml", barcode: "6281033000051" },
+            "910121": { name: "Pepsi - Diet -Bottle 400 ml", barcode: "6281033000068" },
+            "910122": { name: "Miranda -Ordinary -Bottle 400 ml", barcode: "6281033000075" },
+            "910123": { name: "7 up - Ordinary -Bottle 400 ml", barcode: "6281033000082" },
+            "912479": { name: "Citrus -can -330 ml", barcode: "6281033000099" },
+            "910004": { name: "Lipton Ice Tea-can", barcode: "6281033000105" },
+            "911120": { name: "Fresh Orange almarai Juice 200 ml", barcode: "6281033000112" },
+            "911121": { name: "Fresh Apple almarai Juice 200 ml", barcode: "6281033000129" },
+            "911122": { name: "Fresh mango almarai Juice 200 ml", barcode: "6281033000136" },
+            "911123": { name: "Fresh Mix Fruit almarai Juice 200 ml", barcode: "6281033000143" },
+            "911124": { name: "Fresh mix berry almarai Juice 200 ml", barcode: "6281033000150" },
+            "911130": { name: "Fresh Orange with pulp almarai Juice 300 ml", barcode: "6281033000167" },
+            "911131": { name: "Fresh Mango with pulp almarai Juice 300 ml", barcode: "6281033000174" },
+            "911132": { name: "Fresh Apple almarai Juice 300 ml", barcode: "6281033000181" },
+            "911133": { name: "Fresh Straberry almarai juice 300 ml", barcode: "6281033000198" },
+            "911134": { name: "Fresh Fruit Cocktail almarai juice 300 ml", barcode: "6281033000204" },
+            "913000": { name: "Mineral Water (For sale)- Bottle 0.6ltr", barcode: "6281033000211" },
+            "913100": { name: "Mineral water (For free) - Bottle 19ltr", barcode: "6281033000228" }
         };
 
         const dom = {
@@ -334,15 +354,12 @@
             cameraVideo: document.getElementById('camera-video'),
             captureBtn: document.getElementById('capture-btn'),
             closeCameraBtn: document.getElementById('close-camera-btn'),
-            cameraCanvas: document.getElementById('camera-canvas'),
-            flashOverlay: document.getElementById('flash-overlay'),
+            processCanvas: document.getElementById('process-canvas'),
             toastContainer: document.getElementById('toast-container'),
-            // JSON Modal elements
+            // Modal elements
             jsonModal: document.getElementById('json-modal'),
             closeJsonBtn: document.getElementById('close-json-btn'),
             downloadJsonFinalBtn: document.getElementById('download-json-final-btn'),
-            jsonTime: document.getElementById('json-time'),
-            jsonTruckTemp: document.getElementById('json-truck-temp'),
             jsonTempMin: document.getElementById('json-temp-min'),
             jsonTempMax: document.getElementById('json-temp-max'),
             jsonStartIndex: document.getElementById('json-start-index')
@@ -358,133 +375,135 @@
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
             toast.innerHTML = `<span class="text-sm font-medium">${message}</span>`;
-            
             dom.toastContainer.appendChild(toast);
-
             setTimeout(() => {
                 toast.style.opacity = '0';
-                toast.style.transform = 'translateX(100%)';
+                toast.style.transform = 'translateY(100%)';
                 toast.addEventListener('transitionend', () => toast.remove());
             }, 3000);
         }
 
-        // --- Core Logic ---
-        async function handleImageCapture(base64Data, dataUrl) {
-            dom.notificationArea.textContent = '';
-            dom.notificationArea.className = 'text-center text-sm font-medium h-6 mb-4';
+        // --- Helper: Optimize Image (Prevent Memory Leaks) ---
+        function optimizeImage(fileOrBlob) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = dom.processCanvas;
+                    const ctx = canvas.getContext('2d');
+                    // Resize to max 1024 width to save memory
+                    const maxWidth = 1024;
+                    const scale = maxWidth / img.width;
+                    const width = (scale < 1) ? maxWidth : img.width;
+                    const height = (scale < 1) ? img.height * scale : img.height;
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Compress quality to 0.7
+                    resolve(canvas.toDataURL('image/jpeg', 0.7));
+                };
+                img.src = URL.createObjectURL(fileOrBlob);
+            });
+        }
 
+        // --- Core Logic ---
+        function identifyProduct(code, barcode, name) {
+            if (DROPDOWN_CATALOG[code]) return { type: 'dropdown', ...DROPDOWN_CATALOG[code], code };
+            for (const [key, val] of Object.entries(DROPDOWN_CATALOG)) {
+                if (val.barcode === barcode) return { type: 'dropdown', ...val, code: key };
+            }
+            if (CORRECTIVE_CATALOG[code]) return { type: 'corrective', ...CORRECTIVE_CATALOG[code], code };
+            for (const [key, val] of Object.entries(CORRECTIVE_CATALOG)) {
+                if (val.barcode === barcode) return { type: 'corrective', ...val, code: key };
+            }
+            return { type: 'corrective', name: name || "Unknown Product", code: code || "" };
+        }
+
+        async function handleImageCapture(base64Data, displayUrl) {
             const id = `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
             dom.noDataMsg.style.display = 'none';
-            addTableRow(id, dataUrl, base64Data);
-            imageQueue.push({ id, base64Data });
+            // Store only the cleaned Base64 in map, not DOM
+            imageDataStore.set(id, base64Data);
+            addTableRow(id, displayUrl);
+            imageQueue.push({ id });
             processQueue();
         }
 
         function processQueue() {
             while (activeProcessingCount < MAX_CONCURRENT_REQUESTS && imageQueue.length > 0) {
                 activeProcessingCount++;
-                const { id, base64Data } = imageQueue.shift();
+                const { id } = imageQueue.shift();
+                const base64Data = imageDataStore.get(id); // Retrieve from memory
                 
+                if(!base64Data) { activeProcessingCount--; continue; }
+
                 updateTableRowStatus(id, 'processing');
 
-                callGeminiAPI(base64Data)
+                callGeminiAPI(base64Data.split(',')[1]) // Send only base64 string part
                     .then(result => {
-                        // --- Post-Processing Lookup Logic ---
                         if (result) {
-                            // Normalize Code: Remove whitespace
                             const rawCode = result.productCode ? result.productCode.trim() : "";
-                            
-                            // Check if code exists in catalog
-                            if (rawCode && PRODUCT_CATALOG[rawCode]) {
-                                result.productName = PRODUCT_CATALOG[rawCode];
-                            }
+                            const rawBarcode = result.barcode ? result.barcode.trim() : "";
+                            const rawName = result.productName ? result.productName.trim() : "";
+                            const identified = identifyProduct(rawCode, rawBarcode, rawName);
+                            result.productName = identified.name;
+                            result.productCode = identified.code || rawCode;
+                            result._type = identified.type; 
                         }
-                        
                         updateTableRowData(id, result || {}, result ? 'success' : 'failed');
                         if (result) {
                             dom.pdfBtn.disabled = false;
                             dom.csvBtn.disabled = false;
                             dom.jsonBtn.disabled = false;
-                            showToast('Data extracted successfully', 'success');
+                            showToast('Extracted successfully', 'success');
                         } else {
-                            showToast('Failed to extract data', 'error');
+                            showToast('Failed extraction', 'error');
                         }
                     })
                     .catch(error => {
-                        console.error('Error processing image:', error);
+                        console.error('Error:', error);
                         updateTableRowData(id, {}, 'failed');
-                        showToast('Error processing image', 'error');
+                        showToast('Error processing', 'error');
                     })
                     .finally(() => {
                         activeProcessingCount--;
-                        processQueue();
+                        setTimeout(processQueue, 50); // Small delay to yield UI thread
                     });
             }
         }
 
         async function retryImageProcessing(id) {
-            const row = document.getElementById(id);
-            if (!row || !row.dataset.base64) return;
-
-            const base64Data = row.dataset.base64;
+            const base64Data = imageDataStore.get(id);
+            if (!base64Data) { showToast("Image data expired. Reload image.", "error"); return; }
+            
             updateTableRowStatus(id, 'processing');
-
             try {
-                const result = await callGeminiAPI(base64Data);
-                
+                const result = await callGeminiAPI(base64Data.split(',')[1]);
                 if (result) {
                     const rawCode = result.productCode ? result.productCode.trim() : "";
-                    if (rawCode && PRODUCT_CATALOG[rawCode]) {
-                        result.productName = PRODUCT_CATALOG[rawCode];
-                    }
+                    const rawBarcode = result.barcode ? result.barcode.trim() : "";
+                    const rawName = result.productName ? result.productName.trim() : "";
+                    const identified = identifyProduct(rawCode, rawBarcode, rawName);
+                    result.productName = identified.name;
+                    result.productCode = identified.code || rawCode;
+                    result._type = identified.type;
                 }
-
                 updateTableRowData(id, result || {}, result ? 'success' : 'failed');
-                 if (result) {
-                    dom.pdfBtn.disabled = false;
-                    dom.csvBtn.disabled = false;
-                    dom.jsonBtn.disabled = false;
-                    showToast('Retry successful', 'success');
-                }
             } catch (error) {
-                console.error('Error retrying image:', error);
                 updateTableRowData(id, {}, 'failed');
-                showToast('Retry failed', 'error');
             }
         }
 
-        async function callGeminiAPI(imageData) {
-             const apiKey = ""; // API Key injected by environment
-             
-             // Updated to the correct model name
+        async function callGeminiAPI(rawBase64) {
+             const apiKey = ""; // Environment injected
              const modelName = "gemini-2.5-flash-preview-09-2025";
              const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
              
-             const detailedPrompt = `
-                You are an expert product data extraction AI. Analyze the image to identify product details with high accuracy.
-                
-                Extract the following fields:
-                1. Product Code: A distinct item code. Based on the catalog, these are often 10-digit numbers (starting with 1006...) or 6-digit numbers (9xxxxx). Look for labels like "Code", "Item No", or just the number on the label.
-                2. Product Name: The full commercial name.
-                3. Barcode: The EAN, UPC, or numeric code associated with the barcode (often below the vertical lines).
-                4. Production Date: Look for "Mfg", "Prod", "P.Date", "Mfd".
-                5. Expiry Date: Look for "Exp", "Use By", "Best Before", "BB".
-                6. Batch Number: Look for "Batch", "Lot", "L/", "B/N".
-
-                **Critical Rules:**
-                - Product Code is CRITICAL. Try to find the number matching the patterns '1006xxxxxx' or '9xxxxx'.
-                - Format dates strictly as DD/MM/YYYY.
-                - If only one date is visible (future), it is Expiry.
-                - If a value is not visible, return empty string.
-             `;
+             const detailedPrompt = `Extract: 1.Product Code(1006.../9...) 2.Name 3.Barcode 4.Prod Date(DD/MM/YYYY) 5.Exp Date(DD/MM/YYYY) 6.Batch. Critical: If Code missing use Barcode.`;
 
              const payload = {
-                 contents: [{ 
-                     parts: [
-                         { text: detailedPrompt }, 
-                         { inlineData: { mimeType: "image/jpeg", data: imageData } }
-                     ] 
-                 }],
+                 contents: [{ parts: [{ text: detailedPrompt }, { inlineData: { mimeType: "image/jpeg", data: rawBase64 } }] }],
                  generationConfig: {
                      temperature: 0,
                      responseMimeType: "application/json",
@@ -502,7 +521,7 @@
                  }
              };
 
-             const delays = [1000, 2000, 4000];
+             const delays = [1000, 2000];
              for (let i = 0; i <= delays.length; i++) {
                  try {
                      const response = await fetch(apiUrl, { 
@@ -510,46 +529,26 @@
                          headers: { 'Content-Type': 'application/json' }, 
                          body: JSON.stringify(payload) 
                      });
-
                      if (response.ok) {
                          const result = await response.json();
                          let jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                         if (jsonText) {
-                             jsonText = jsonText.replace(/```json|```/g, '').trim();
-                             return JSON.parse(jsonText);
-                         }
+                         if (jsonText) return JSON.parse(jsonText);
                          return null;
                      } 
-                     
-                     if (i === delays.length) {
-                        const errorBody = await response.text();
-                        throw new Error(`API Error: ${response.status} ${errorBody}`);
-                     }
-
-                 } catch (error) {
-                     console.error(`Attempt ${i + 1} failed:`, error);
-                     if (i < delays.length) {
-                         await new Promise(res => setTimeout(res, delays[i]));
-                     } else {
-                         throw error;
-                     }
-                 }
+                 } catch (e) { if(i===delays.length) throw e; await new Promise(r=>setTimeout(r, delays[i])); }
              }
              return null;
         }
 
-        // --- UI Functions ---
-        function addTableRow(id, thumbnailUrl, base64Data) {
+        // --- UI Render Functions ---
+        function addTableRow(id, displayUrl) {
             const row = dom.resultsTableBody.insertRow();
             row.id = id;
-            row.dataset.base64 = base64Data;
             row.className = "hover:bg-gray-50 transition-colors";
             row.innerHTML = `
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <img src="${thumbnailUrl}" class="h-12 w-12 object-cover rounded-lg shadow-sm border border-gray-200">
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 data-cell italic" colspan="6">Waiting in queue...</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 status-cell"></td>
+                <td class="px-4 py-3 whitespace-nowrap"><img src="${displayUrl}" class="h-10 w-10 object-cover rounded shadow-sm"></td>
+                <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-500 italic" colspan="6">Queued...</td>
+                <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-500 status-cell"></td>
             `;
             updateTableRowStatus(id, 'queued');
         }
@@ -557,457 +556,215 @@
         function updateTableRowStatus(id, status) {
             const row = document.getElementById(id);
             if (!row) return;
-            
             const statusCell = row.querySelector('.status-cell');
             row.dataset.status = status;
-            
-            let statusHtml = '';
-            switch(status) {
-                case 'queued':
-                    statusHtml = `<div class="flex items-center text-gray-400"><i class="far fa-clock mr-2"></i>Queued</div>`;
-                    break;
-                case 'processing':
-                    statusHtml = `<div class="flex items-center text-indigo-600 font-medium"><div class="loader mr-2"></div>Processing</div>`;
-                    break;
-            }
-            if (statusCell && statusHtml) statusCell.innerHTML = statusHtml;
+            let html = '';
+            if(status==='queued') html = '<span class="text-gray-400"><i class="far fa-clock"></i></span>';
+            if(status==='processing') html = '<div class="loader"></div>';
+            statusCell.innerHTML = html;
         }
 
         function updateTableRowData(id, data, status) {
             const row = document.getElementById(id);
             if (!row) return;
-
             row.dataset.status = status;
             const statusCell = row.querySelector('.status-cell');
-            const dataCell = row.querySelector('.data-cell');
             
-            if (dataCell) dataCell.remove();
+            // Remove loading/temp cells
+            while (row.cells.length > 2) row.deleteCell(1);
 
-            let statusHtml;
-            if (status === 'success') {
-                statusHtml = `<div class="flex items-center text-emerald-600 font-medium"><i class="fas fa-check-circle mr-2"></i>Success</div>`;
-            } else {
-                statusHtml = `<div class="flex items-center text-red-600 font-medium"><i class="fas fa-exclamation-circle mr-2"></i>Failed <button class="retry-btn shadow-sm">Retry</button></div>`;
-            }
+            let statusHtml = status === 'success' 
+                ? '<span class="text-emerald-600"><i class="fas fa-check-circle"></i></span>'
+                : '<button class="retry-btn">Retry</button>';
 
-            const dataHtml = `
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><input type="text" class="editable-input" value="${data.productCode || ''}" placeholder="--"></td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><input type="text" class="editable-input font-medium" value="${data.productName || ''}" placeholder="--"></td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><input type="text" class="editable-input" value="${data.barcode || ''}" placeholder="--"></td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><input type="text" class="editable-input" value="${data.productionDate || ''}" placeholder="--"></td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><input type="text" class="editable-input" value="${data.expiryDate || ''}" placeholder="--"></td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><input type="text" class="editable-input" value="${data.batchNumber || ''}" placeholder="--"></td>
-            `;
-            
-            const existingDataCells = row.querySelectorAll('td:not(:first-child):not(.status-cell)');
-            existingDataCells.forEach(cell => cell.remove());
+            const cells = [
+                data.productCode, data.productName, data.barcode, 
+                data.productionDate, data.expiryDate, data.batchNumber
+            ];
 
-            const tempDiv = document.createElement('tr');
-            tempDiv.innerHTML = dataHtml;
-            const newCells = Array.from(tempDiv.cells);
-            
-            if (row.cells.length === 2 && row.cells[1].colSpan === 6) {
-                 row.deleteCell(1);
-            }
-
-            newCells.forEach(cell => row.insertBefore(cell, statusCell));
+            cells.forEach(val => {
+                const cell = row.insertCell(row.cells.length - 1);
+                cell.className = "px-4 py-3 whitespace-nowrap text-xs text-gray-700";
+                cell.innerHTML = `<input type="text" class="editable-input" value="${val || ''}" placeholder="-">`;
+            });
             
             statusCell.innerHTML = statusHtml;
         }
-        
-        function generatePdf() {
-            const doc = new jsPDF();
-            const tableData = [];
-            const headers = [['Product Code', 'Product Name', 'Barcode', 'Production Date', 'Expiry Date', 'Batch No.']];
-            
-            dom.resultsTableBody.querySelectorAll('tr').forEach(row => {
-                if (row.dataset.status === 'success') {
-                    const inputs = row.querySelectorAll('.editable-input');
-                    if (inputs.length >= 6) {
-                        tableData.push([
-                            inputs[0].value, // Code
-                            inputs[1].value, // Name
-                            inputs[2].value, // Barcode
-                            inputs[3].value, // Prod
-                            inputs[4].value, // Exp
-                            inputs[5].value  // Batch
-                        ]);
-                    }
-                }
-            });
-            
-            if (tableData.length === 0) {
-                showToast("No data to generate PDF.", "error");
-                return;
-            }
-            
-            doc.setFontSize(18);
-            doc.text("Product Data Report", 14, 15);
-            doc.setFontSize(10);
-            doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 22);
-            
-            doc.autoTable({ 
-                head: headers, 
-                body: tableData, 
-                startY: 30,
-                theme: 'grid',
-                headStyles: { fillColor: [79, 70, 229] },
-                styles: { fontSize: 8 }
-            });
-            doc.save('product-data-report.pdf');
-            showToast("PDF generated successfully", "success");
-        }
 
         function formatDateToMMDDYYYY(dateStr) {
-            // Input expected: DD/MM/YYYY (from AI)
-            // Output needed: MM/DD/YYYY (for JSON/CSV)
             if (!dateStr || !dateStr.includes('/')) return dateStr;
             const parts = dateStr.split('/');
-            // If we have Day, Month, Year
-            if (parts.length === 3) {
-                return `${parts[1]}/${parts[0]}/${parts[2]}`;
-            }
+            if (parts.length === 3) return `${parts[1]}/${parts[0]}/${parts[2]}`;
             return dateStr;
         }
 
-        // --- JSON Generation Logic ---
+        function getRandomTemp(min, max) {
+            return (Math.random() * (max - min) + min).toFixed(1) + "C";
+        }
 
-        function openJsonSettings() {
-            // Check if there are any successful rows
-            let hasData = false;
+        // --- JSON Generation (Optimized Batch Logic) ---
+        function downloadJSON() {
+            let startRowIndex = parseInt(dom.jsonStartIndex.value) || 11;
+            const frozenTempMin = parseFloat(dom.jsonTempMin.value);
+            const frozenTempMax = parseFloat(dom.jsonTempMax.value);
+
+            // 1. Gather Data
+            const rowsData = [];
             dom.resultsTableBody.querySelectorAll('tr').forEach(row => {
-                if (row.dataset.status === 'success') hasData = true;
+                if (row.dataset.status === 'success') {
+                    const inputs = row.querySelectorAll('.editable-input');
+                    if (inputs.length >= 6) {
+                        const code = inputs[0].value.trim();
+                        const barcode = inputs[2].value.trim();
+                        const name = inputs[1].value;
+                        const identified = identifyProduct(code, barcode, name);
+                        rowsData.push({
+                            code, name, barcode,
+                            prodDate: formatDateToMMDDYYYY(inputs[3].value),
+                            expDate: formatDateToMMDDYYYY(inputs[4].value),
+                            batchNo: inputs[5].value,
+                            type: identified.type
+                        });
+                    }
+                }
             });
 
-            if (!hasData) {
-                showToast("No data available to generate JSON.", "error");
-                return;
-            }
+            // 2. Sort Groups
+            const frozenItems = [], chilledItems = [];
+            rowsData.forEach(item => {
+                if (CHILLED_PRODUCT_CODES.includes(item.code)) chilledItems.push(item);
+                else frozenItems.push(item);
+            });
 
-            dom.jsonModal.classList.remove('hidden');
-            dom.jsonModal.classList.add('flex');
-        }
+            // 3. Assign Indices
+            let idx = startRowIndex;
+            frozenItems.forEach(i => i.rowIndex = idx++);
+            chilledItems.forEach(i => i.rowIndex = idx++);
 
-        function closeJsonModal() {
-            dom.jsonModal.classList.add('hidden');
-            dom.jsonModal.classList.remove('flex');
-        }
-
-        function formatTime12Hour(timeStr) {
-            if (!timeStr) return "10:00 AM";
-            const [hours, minutes] = timeStr.split(':');
-            let h = parseInt(hours);
-            const ampm = h >= 12 ? 'PM' : 'AM';
-            h = h % 12;
-            h = h ? h : 12; // 0 should be 12
-            return `${h}:${minutes} ${ampm}`;
-        }
-
-        function getRandomTemp(min, max) {
-            const val = Math.random() * (max - min) + min;
-            return val.toFixed(1) + "C";
-        }
-
-        function downloadJSON() {
-            const globalTime = formatTime12Hour(dom.jsonTime.value);
-            const globalTruckTemp = dom.jsonTruckTemp.value;
-            const tempMin = parseFloat(dom.jsonTempMin.value);
-            const tempMax = parseFloat(dom.jsonTempMax.value);
-            // Use user-provided start index or default to 1
-            let rowCount = parseInt(dom.jsonStartIndex.value) || 1;
+            if (frozenItems.length === 0 && chilledItems.length === 0) return showToast("No valid items.", "error");
 
             const commands = [];
 
-            dom.resultsTableBody.querySelectorAll('tr').forEach(row => {
-                if (row.dataset.status === 'success') {
-                    const inputs = row.querySelectorAll('.editable-input');
-                    if (inputs.length >= 6) {
-                        const productName = inputs[1].value;
-                        const prodDate = formatDateToMMDDYYYY(inputs[3].value);
-                        const expDate = formatDateToMMDDYYYY(inputs[4].value);
-                        const batchNo = inputs[5].value;
-
-                        // Generate Random Temp for this row
-                        const randomProductTemp = getRandomTemp(tempMin, tempMax);
-
-                        // --- Generate Commands for this row ---
-                        
-                        // 1. Select Product Name
-                        commands.push({
-                            "Command": "select",
-                            "Target": `id=r${rowCount}_Product_Name`,
-                            "Value": `label=${productName}`,
-                            "Targets": [
-                                `id=r${rowCount}_Product_Name`,
-                                `name=r${rowCount}_Product_Name`,
-                                `xpath=//*[@id="r${rowCount}_Product_Name"]`,
-                                `css=#r${rowCount}_Product_Name`
-                            ],
-                            "Description": ""
-                        });
-
-                        // 2. Production Date
-                        const prodPickerId = `datepicker${rowCount}`;
-                        commands.push({
-                            "Command": "click",
-                            "Target": `id=${prodPickerId}`,
-                            "Value": prodDate,
-                            "Targets": [
-                                `id=${prodPickerId}`,
-                                `name=r${rowCount}_Production_Date`,
-                                `xpath=//*[@id="${prodPickerId}"]`,
-                                `css=#${prodPickerId}`
-                            ],
-                            "Description": "production date"
-                        });
-
-                        // 3. Expiry Date (offset 10)
-                        const expPickerId = `datepicker${rowCount + 10}`;
-                        commands.push({
-                            "Command": "click",
-                            "Target": `id=${expPickerId}`,
-                            "Value": expDate,
-                            "Targets": [
-                                `id=${expPickerId}`,
-                                `name=r${rowCount}_expiry_Date`,
-                                `xpath=//*[@id="${expPickerId}"]`,
-                                `css=#${expPickerId}`
-                            ],
-                            "Description": "expire date"
-                        });
-
-                        // 4. Batch/Lot
-                        commands.push({
-                            "Command": "type",
-                            "Target": `id=r${rowCount}_Product_Lot`,
-                            "Value": batchNo,
-                            "Targets": [
-                                `id=r${rowCount}_Product_Lot`,
-                                `name=r${rowCount}_Product_Lot`,
-                                `xpath=//*[@id="r${rowCount}_Product_Lot"]`,
-                                `css=#r${rowCount}_Product_Lot`
-                            ],
-                            "Description": ""
-                        });
-
-                        // 5. Temp Truck (Customized)
-                        commands.push({
-                            "Command": "type",
-                            "Target": `id=r${rowCount}_Temp_Truck`,
-                            "Value": globalTruckTemp,
-                            "Targets": [
-                                `id=r${rowCount}_Temp_Truck`,
-                                `name=r${rowCount}_Temp_Truck`,
-                                `xpath=//*[@id="r${rowCount}_Temp_Truck"]`,
-                                `css=#r${rowCount}_Temp_Truck`
-                            ],
-                            "Description": ""
-                        });
-
-                        // 6. Temp Product (Randomized)
-                         commands.push({
-                            "Command": "type",
-                            "Target": `id=r${rowCount}_Temp_Product`,
-                            "Value": randomProductTemp,
-                            "Targets": [
-                                `id=r${rowCount}_Temp_Product`,
-                                `name=r${rowCount}_Temp_Product`,
-                                `xpath=//*[@id="r${rowCount}_Temp_Product"]`,
-                                `css=#r${rowCount}_Temp_Product`
-                            ],
-                            "Description": ""
-                        });
-
-                        // 7. REMOVED Quantity (Deleted as per request)
-
-                        // 8. Corrective Action (Smart Logic)
-                        // Check if product name exists in the provided catalog
-                        const cleanName = productName.trim();
-                        const isKnownProduct = Object.values(PRODUCT_CATALOG).some(name => name === cleanName);
-                        // If NOT found, use name as ID. If found, leave empty.
-                        const correctiveValue = isKnownProduct ? "" : cleanName;
-
-                         commands.push({
-                            "Command": "type",
-                            "Target": `id=r${rowCount}_Corrective_Action`,
-                            "Value": correctiveValue,
-                            "Targets": [
-                                `id=r${rowCount}_Corrective_Action`,
-                                `name=r${rowCount}_Corrective_Action`,
-                                `xpath=//*[@id="r${rowCount}_Corrective_Action"]`,
-                                `css=#r${rowCount}_Corrective_Action`
-                            ],
-                            "Description": ""
-                        });
-
-                        // 9. Time (Customized)
-                         commands.push({
-                            "Command": "type",
-                            "Target": `id=r${rowCount}_Time`,
-                            "Value": globalTime,
-                            "Targets": [
-                                `id=r${rowCount}_Time`,
-                                `name=r${rowCount}_Time`,
-                                `xpath=//*[@id="r${rowCount}_Time"]`,
-                                `css=#r${rowCount}_Time`
-                            ],
-                            "Description": ""
-                        });
-
-                        rowCount++;
-                    }
+            // Helper: Generate Common Fields
+            const generateDetails = (item) => {
+                const r = item.rowIndex;
+                // Type/Select logic
+                if (item.type === 'dropdown') {
+                    commands.push({ "Command": "select", "Target": `id=r${r}_Product_Name`, "Value": `label=${item.name}`, "Targets": [], "Description": "" });
+                    commands.push({ "Command": "type", "Target": `id=r${r}_Corrective_Action`, "Value": "", "Targets": [], "Description": "" });
+                } else {
+                    commands.push({ "Command": "type", "Target": `id=r${r}_Corrective_Action`, "Value": item.name, "Targets": [], "Description": "" });
                 }
-            });
-
-            const finalJson = {
-                "Name": "FOOD PACKIGINE",
-                "CreationDate": new Date().toISOString().split('T')[0],
-                "Commands": commands
+                // Dates & Batch
+                const prodId = `datepicker${r}`, expId = `datepicker${r+100}`;
+                commands.push({ "Command": "type", "Target": `id=${prodId}`, "Value": item.prodDate, "Targets": [], "Description": "production date" });
+                commands.push({ "Command": "type", "Target": `id=${expId}`, "Value": item.expDate, "Targets": [], "Description": "expire date" });
+                commands.push({ "Command": "type", "Target": `id=r${r}_Product_Lot`, "Value": item.batchNo, "Targets": [], "Description": "" });
             };
 
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(finalJson, null, 2));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "automation_script.json");
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
-            
-            closeJsonModal();
-            showToast("JSON generated successfully", "success");
-        }
-
-        function generateCSV() {
-            let csvContent = "data:text/csv;charset=utf-8,";
-            const headers = ['Product Code', 'Product Name', 'Barcode', 'Production Date', 'Expiry Date', 'Batch No.'];
-            csvContent += headers.join(",") + "\r\n";
-
-            let rowsFound = 0;
-            dom.resultsTableBody.querySelectorAll('tr').forEach(row => {
-                if (row.dataset.status === 'success') {
-                    rowsFound++;
-                    const inputs = row.querySelectorAll('.editable-input');
-                    if (inputs.length >= 6) {
-                        // Convert dates from DD/MM/YYYY to MM/DD/YYYY
-                        const prodDate = formatDateToMMDDYYYY(inputs[3].value);
-                        const expDate = formatDateToMMDDYYYY(inputs[4].value);
-
-                        const rowData = [
-                            `"${inputs[0].value.replace(/"/g, '""')}"`, // Code
-                            `"${inputs[1].value.replace(/"/g, '""')}"`, // Name
-                            `"${inputs[2].value.replace(/"/g, '""')}"`, // Barcode
-                            `"${prodDate}"`,
-                            `"${expDate}"`,
-                            `"${inputs[5].value}"` // Batch
-                        ];
-                        csvContent += rowData.join(",") + "\r\n";
-                    }
-                }
-            });
-
-            if (rowsFound === 0) {
-                showToast("No data to export.", "error");
-                return;
+            // --- FROZEN BATCH ---
+            if (frozenItems.length > 0) {
+                // 1. Prompts
+                commands.push({ "Command": "prompt", "Target": "Time- Frozen", "Value": "timefrozen", "Description": "time for frozen" });
+                // 2. Fill All Times
+                frozenItems.forEach(i => commands.push({ "Command": "type", "Target": `id=r${i.rowIndex}_Time`, "Value": "${timefrozen}", "Targets": [], "Description": "" }));
+                // 3. Prompt Truck Temp
+                commands.push({ "Command": "prompt", "Target": "Tempreture- Frozen", "Value": "Frozentem", "Description": "temp for frozen" });
+                // 4. Fill All Truck Temps
+                frozenItems.forEach(i => commands.push({ "Command": "type", "Target": `id=r${i.rowIndex}_Temp_Truck`, "Value": "${Frozentem}", "Targets": [], "Description": "" }));
+                // 5. Fill All Product Temps (Random)
+                frozenItems.forEach(i => commands.push({ "Command": "type", "Target": `id=r${i.rowIndex}_Temp_Product`, "Value": getRandomTemp(frozenTempMin, frozenTempMax), "Targets": [], "Description": "" }));
+                // 6. Fill Details
+                frozenItems.forEach(i => generateDetails(i));
             }
-            
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "product_data_export.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showToast("CSV exported successfully", "success");
-        }
 
-        function closeCamera() {
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(track => track.stop());
-                mediaStream = null;
+            // --- CHILLED BATCH ---
+            if (chilledItems.length > 0) {
+                // 1. Prompts
+                commands.push({ "Command": "prompt", "Target": "Time- chiller", "Value": "timechiller", "Description": "time for chiller" });
+                // 2. Fill All Times
+                chilledItems.forEach(i => commands.push({ "Command": "type", "Target": `id=r${i.rowIndex}_Time`, "Value": "${timechiller}", "Targets": [], "Description": "" }));
+                // 3. Prompt Truck Temp
+                commands.push({ "Command": "prompt", "Target": "Tempreture- Chiller", "Value": "chillertem", "Description": "temp for chiller" });
+                // 4. Fill All Truck Temps
+                chilledItems.forEach(i => commands.push({ "Command": "type", "Target": `id=r${i.rowIndex}_Temp_Truck`, "Value": "${chillertem}", "Targets": [], "Description": "" }));
+                // 5. Fill All Product Temps (Random 0.5-4.8)
+                chilledItems.forEach(i => commands.push({ "Command": "type", "Target": `id=r${i.rowIndex}_Temp_Product`, "Value": getRandomTemp(0.5, 4.8), "Targets": [], "Description": "" }));
+                // 6. Fill Details
+                chilledItems.forEach(i => generateDetails(i));
             }
-            dom.cameraModal.classList.add('hidden');
-            dom.cameraModal.classList.remove('flex');
+
+            // Download Logic
+            const blob = new Blob([JSON.stringify({ "Name": "FOOD PACKIGINE", "CreationDate": new Date().toISOString().split('T')[0], "Commands": commands }, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = "automation_script.json"; a.click();
+            
+            dom.jsonModal.classList.add('hidden');
+            dom.jsonModal.classList.remove('flex');
+            showToast("JSON downloaded!", "success");
         }
 
         // --- Event Listeners ---
-        
         dom.clearBtn.addEventListener('click', () => {
-             imageQueue.length = 0;
-             dom.resultsTableBody.innerHTML = '';
+             imageQueue.length = 0; imageDataStore.clear(); dom.resultsTableBody.innerHTML = '';
              dom.noDataMsg.style.display = 'block';
-             dom.pdfBtn.disabled = true;
-             dom.csvBtn.disabled = true;
-             dom.jsonBtn.disabled = true;
-             showToast('All items cleared');
+             ['pdf','csv','json'].forEach(id => document.getElementById(id+'-btn').disabled = true);
+             showToast('Cleared');
         });
 
-        dom.imageUploadInput.addEventListener('change', (event) => {
-            if (event.target.files.length > 0) {
-                Array.from(event.target.files).forEach(file => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => handleImageCapture(e.target.result.split(',')[1], e.target.result);
-                    reader.readAsDataURL(file);
-                });
-                event.target.value = null; // Reset so same file can be selected again
+        dom.imageUploadInput.addEventListener('change', async (e) => {
+            if (e.target.files.length) {
+                for (const file of Array.from(e.target.files)) {
+                    // Optimize image before storing/processing
+                    const optimizedDataUrl = await optimizeImage(file);
+                    handleImageCapture(optimizedDataUrl, optimizedDataUrl);
+                }
+                e.target.value = null;
             }
         });
 
         dom.cameraBtn.addEventListener('click', async () => {
             try {
-                // facingMode: 'environment' prefers rear camera on mobile
-                mediaStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment' } 
-                });
+                mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                 dom.cameraVideo.srcObject = mediaStream;
                 dom.cameraModal.classList.remove('hidden');
-                dom.cameraModal.classList.add('flex');
-            } catch (err) { 
-                console.error("Error accessing camera: ", err); 
-                showToast("Could not access camera. Please check permissions.", "error");
-            }
+            } catch { showToast("Camera access denied", "error"); }
         });
 
-        dom.captureBtn.addEventListener('click', () => {
+        dom.captureBtn.addEventListener('click', async () => {
              if (!dom.cameraVideo.srcObject) return;
+             const ctx = dom.processCanvas.getContext('2d');
+             dom.processCanvas.width = dom.cameraVideo.videoWidth;
+             dom.processCanvas.height = dom.cameraVideo.videoHeight;
+             ctx.drawImage(dom.cameraVideo, 0, 0);
              
-             const context = dom.cameraCanvas.getContext('2d');
-             dom.cameraCanvas.width = dom.cameraVideo.videoWidth;
-             dom.cameraCanvas.height = dom.cameraVideo.videoHeight;
+             // Compress directly from canvas
+             const dataUrl = dom.processCanvas.toDataURL('image/jpeg', 0.7);
+             handleImageCapture(dataUrl, dataUrl);
              
-             // Draw image directly (no mirroring for rear camera)
-             context.drawImage(dom.cameraVideo, 0, 0, dom.cameraCanvas.width, dom.cameraCanvas.height);
-             
-             // Flash effect
-             dom.flashOverlay.classList.add('flash');
-             setTimeout(() => dom.flashOverlay.classList.remove('flash'), 300);
-             
-             const dataUrl = dom.cameraCanvas.toDataURL('image/jpeg');
-             handleImageCapture(dataUrl.split(',')[1], dataUrl);
-             closeCamera();
+             if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+             dom.cameraModal.classList.add('hidden');
         });
         
-        dom.closeCameraBtn.addEventListener('click', closeCamera);
-        dom.pdfBtn.addEventListener('click', generatePdf);
-        dom.csvBtn.addEventListener('click', generateCSV);
-        // Changed listener from generateJSON to openJsonSettings
+        dom.closeCameraBtn.addEventListener('click', () => {
+            if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+            dom.cameraModal.classList.add('hidden');
+        });
+
         dom.jsonBtn.addEventListener('click', openJsonSettings);
-        
-        // Modal Event Listeners
         dom.closeJsonBtn.addEventListener('click', closeJsonModal);
         dom.downloadJsonFinalBtn.addEventListener('click', downloadJSON);
         
-        // Delegation for retry buttons
-        dom.resultsTableBody.addEventListener('click', (event) => {
-            if (event.target.classList.contains('retry-btn')) {
-                const button = event.target;
-                const row = button.closest('tr');
-                if (row) {
-                    button.disabled = true;
-                    button.textContent = 'Retrying...';
-                    retryImageProcessing(row.id);
-                }
+        dom.resultsTableBody.addEventListener('click', (e) => {
+            if (e.target.classList.contains('retry-btn')) {
+                const row = e.target.closest('tr');
+                e.target.disabled = true;
+                e.target.textContent = '...';
+                retryImageProcessing(row.id);
             }
         });
     </script>
 </body>
 </html>
+
+
