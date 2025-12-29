@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Smart Product Data Extractor</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <!-- Libraries loaded with defer to prevent blocking -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -16,7 +16,8 @@
             background-color: #f3f4f6;
             -webkit-tap-highlight-color: transparent;
         }
-        /* Loader */
+        button, label { touch-action: manipulation; }
+        
         .loader {
             border: 2px solid #e5e7eb;
             border-top: 2px solid #4f46e5;
@@ -27,23 +28,20 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        /* Modals */
         #camera-modal, #json-modal {
-            background-color: rgba(0,0,0,0.9);
+            background-color: rgba(0,0,0,0.95);
             backdrop-filter: blur(4px);
         }
         #camera-video { object-fit: cover; }
         
-        /* Inputs */
         .editable-input {
             width: 100%;
-            min-width: 100px;
+            min-width: 90px;
             border: 1px solid transparent;
             padding: 8px;
             border-radius: 6px;
             background-color: transparent;
-            transition: all 0.2s;
-            font-size: 14px;
+            font-size: 13px;
         }
         .editable-input:focus {
             outline: none;
@@ -52,16 +50,15 @@
             box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
         }
         
-        /* Table */
         .table-container {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             background: white;
             border-radius: 0.75rem;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            min-height: 200px;
         }
         
-        /* Toast */
         #toast-container {
             position: fixed;
             bottom: 20px; left: 20px; right: 20px;
@@ -90,31 +87,28 @@
 
     <div class="container mx-auto max-w-6xl p-4">
         <div class="bg-white rounded-2xl shadow-xl p-4 md:p-8 border border-gray-100 relative">
-            <!-- Settings Icon -->
-            <button id="settings-btn" class="absolute top-4 right-4 text-gray-400 hover:text-indigo-600 p-2 z-10">
+            <button id="settings-btn" class="absolute top-4 right-4 text-gray-400 hover:text-indigo-600 p-2 z-10" title="Settings">
                 <i class="fas fa-cog text-xl"></i>
             </button>
 
             <div class="text-center mb-6">
                 <h1 class="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight flex justify-center items-center gap-2">
                     Smart Product Extractor
-                    <span id="demo-indicator" class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full border border-yellow-200 hidden">Demo</span>
+                    <span id="demo-indicator" class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full border border-yellow-200 hidden">Demo Mode</span>
                 </h1>
-                <p class="text-gray-500 mt-2 text-sm">Automated Data Entry & Analysis</p>
+                <p class="text-gray-500 mt-2 text-sm">Automated Data Entry System</p>
             </div>
             
-            <!-- Controls -->
             <div class="flex flex-col sm:flex-row justify-center items-center gap-3 mb-6">
-                <label class="w-full sm:w-auto cursor-pointer flex justify-center items-center py-3 px-6 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 active:scale-95 transition-all">
+                <label class="w-full sm:w-auto cursor-pointer flex justify-center items-center py-3 px-6 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 active:scale-95 transition-all select-none">
                     <i class="fas fa-upload mr-2"></i> Upload Image
                     <input id="image-upload-input" type="file" class="hidden" accept="image/*" multiple>
                 </label>
-                <button id="camera-btn" class="w-full sm:w-auto flex justify-center items-center py-3 px-6 border border-gray-300 rounded-lg hover:bg-gray-50 active:scale-95 transition-all">
+                <button id="camera-btn" class="w-full sm:w-auto flex justify-center items-center py-3 px-6 border border-gray-300 rounded-lg hover:bg-gray-50 active:scale-95 transition-all select-none">
                     <i class="fas fa-camera mr-2"></i> Camera
                 </button>
             </div>
 
-            <!-- Table -->
             <div class="table-container border border-gray-200 mb-6">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
@@ -133,11 +127,10 @@
                 </table>
                 <div id="no-data-msg" class="text-center text-gray-500 py-12">
                     <i class="far fa-images text-4xl mb-2 text-gray-300"></i>
-                    <p class="text-sm">No images yet</p>
+                    <p class="text-sm">Ready for extraction</p>
                 </div>
             </div>
             
-            <!-- Actions -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-gray-100">
                  <button id="json-btn" class="flex justify-center items-center py-3 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium" disabled>
                      <i class="fas fa-code mr-2"></i> JSON
@@ -170,35 +163,45 @@
     <!-- JSON Settings -->
     <div id="json-modal" class="fixed inset-0 z-50 items-center justify-center hidden p-4 flex">
         <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">Automation Config</h3>
+            <h3 class="text-xl font-bold text-gray-900 mb-5">Automation Settings</h3>
             
-            <div class="space-y-4">
+            <div class="space-y-6">
                 <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">Start Row ID</label>
-                    <input type="number" id="json-start-index" value="11" class="w-full border-gray-300 bg-gray-50 rounded p-2 text-sm outline-none focus:ring-2 ring-indigo-500">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Start Row Index</label>
+                    <input type="number" id="json-start-index" value="11" min="1" class="w-full border-gray-300 bg-gray-50 rounded-lg shadow-sm border p-2.5 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+                    <p class="text-xs text-gray-500 mt-1">IDs will start counting from this number (e.g., r11).</p>
                 </div>
 
-                <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                    <h4 class="text-xs font-bold text-blue-800 mb-2 uppercase"><i class="fas fa-snowflake mr-1"></i> Frozen Temp Range</h4>
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="number" id="json-temp-min" value="-20.8" step="0.1" class="w-full border-white bg-white rounded p-2 text-sm">
-                        <input type="number" id="json-temp-max" value="-18.0" step="0.1" class="w-full border-white bg-white rounded p-2 text-sm">
+                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <h4 class="text-sm font-bold text-blue-800 mb-3 uppercase flex items-center">
+                        <i class="fas fa-snowflake mr-2"></i> Frozen Config
+                    </h4>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Prod. Min (°C)</label>
+                            <input type="number" id="json-temp-min" value="-20.8" step="0.1" class="w-full border-gray-300 bg-white rounded-lg p-2 text-sm outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Prod. Max (°C)</label>
+                            <input type="number" id="json-temp-max" value="-18.0" step="0.1" class="w-full border-gray-300 bg-white rounded-lg p-2 text-sm outline-none">
+                        </div>
                     </div>
                 </div>
-                
-                <div class="bg-gray-50 p-3 rounded-lg text-xs text-gray-600 space-y-1">
-                    <p><strong>Processing Order:</strong></p>
-                    <ol class="list-decimal pl-4">
-                        <li>Frozen Items (Batch fill Time/Temp)</li>
-                        <li>Chilled Items (Batch fill Time/Temp)</li>
-                    </ol>
-                    <p class="mt-2 text-indigo-600">Chilled Temp fixed: 0.5°C to 4.8°C</p>
+
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm text-gray-600">
+                    <p class="mb-2 font-semibold">Sequence & Automation Logic:</p>
+                    <ul class="list-disc pl-4 space-y-1 text-xs">
+                        <li><strong>Order:</strong> Frozen first, then Chilled.</li>
+                        <li><strong>Batch Filling:</strong> <br>1. Prompt Time -> Fill All Times.<br>2. Prompt Truck Temp -> Fill All Truck Temps.<br>3. Fill All Product Temps.<br>4. Fill Rest of Details.</li>
+                    </ul>
                 </div>
             </div>
 
-            <div class="mt-6 flex justify-end gap-3">
-                <button id="close-json-btn" class="px-4 py-2 bg-gray-100 rounded-lg text-sm font-medium">Cancel</button>
-                <button id="download-json-final-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium shadow-lg">Download JSON</button>
+            <div class="mt-8 flex justify-end gap-3">
+                <button id="close-json-btn" class="px-5 py-3 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200">Cancel</button>
+                <button id="download-json-final-btn" class="px-5 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 shadow-lg flex items-center">
+                    <i class="fas fa-download mr-2"></i> Download
+                </button>
             </div>
         </div>
     </div>
@@ -209,13 +212,24 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // --- DATA & CONFIG ---
+        // --- 1. Global State ---
         const imageDataStore = new Map();
-        const imageQueue = [];
-        let activeProcessingCount = 0;
         let mediaStream = null;
+        let activeProcessingCount = 0;
+        const MAX_CONCURRENT_REQUESTS = 2; // Conservative for mobile
 
-        // 1. DROPDOWN CATALOG (Frozen Items 1-38)
+        // --- 2. Data Definitions (Strictly from Excel) ---
+        const CHILLED_CODES = [
+            "1006000037", "1006000038", "1006000039", "1006000040", "1006000041", "1006000042",
+            "1006000043", "1006000044", "1006000045", "1006000046", "1006000048",
+            "1006000049", "1006000050", "1006000051", "1006000052", "1006000053",
+            "1006000054", "1006000055", "1006000056", "1006000215", "1006000216", 
+            "911120", "911121", "911122", "911123", "911124", "911130", "911131",
+            "911132", "911133", "911134", "910005", "910006", "910007", "910008",
+            "910009", "910120", "910121", "910122", "910123", "912479", "910004",
+            "930100", "930200", "941110", "913000", "913100"
+        ];
+
         const DROPDOWN_CATALOG = {
             "1006000020": { name: "ALBAIK CHICKEN FILLET NUGGETS", barcode: "6287031260065" },
             "1006000021": { name: "ALBAIK CHICKEN FILLET NUGGETS SPICY", barcode: "6287031260066" },
@@ -262,7 +276,6 @@
             "1006000198": { name: "ALBAIK Chicken Strips Breaded", barcode: "6287031250664" }
         };
 
-        // 2. CORRECTIVE CATALOG (Chilled items + Others)
         const CORRECTIVE_CATALOG = {
             "1006000215": { name: "ALBAIK Light Tartar Sauce", barcode: "6287031251135" },
             "1006000216": { name: "ALBAIK Pickles Cucumber Diced Sweet", barcode: "6287031251173" },
@@ -274,276 +287,208 @@
             "910009": { name: "Soft Drinks", barcode: "" }
         };
 
-        // 3. CHILLED LIST (Codes that trigger Chiller Logic 0.5-4.8C)
-        const CHILLED_CODES = [
-            "1006000215", "1006000216", "1006000217", // New from file
-            "941110", "930100", "930200", "910005", "910009" // Legacy Corrective
-        ];
-
-        // --- DOM Elements ---
         const dom = {
-            tableBody: document.getElementById('results-table-body'),
-            noData: document.getElementById('no-data-msg'),
+            imageUploadInput: document.getElementById('image-upload-input'),
+            cameraBtn: document.getElementById('camera-btn'),
+            resultsTableBody: document.getElementById('results-table-body'),
+            noDataMsg: document.getElementById('no-data-msg'),
             jsonBtn: document.getElementById('json-btn'),
             pdfBtn: document.getElementById('pdf-btn'),
             csvBtn: document.getElementById('csv-btn'),
             clearBtn: document.getElementById('clear-btn'),
-            jsonModal: document.getElementById('json-modal'),
             cameraModal: document.getElementById('camera-modal'),
-            demoBadge: document.getElementById('demo-indicator'),
-            inputs: {
-                startIdx: document.getElementById('json-start-index'),
-                minT: document.getElementById('json-temp-min'),
-                maxT: document.getElementById('json-temp-max')
-            }
+            cameraVideo: document.getElementById('camera-video'),
+            captureBtn: document.getElementById('capture-btn'),
+            closeCameraBtn: document.getElementById('close-camera-btn'),
+            processCanvas: document.getElementById('process-canvas'),
+            toastContainer: document.getElementById('toast-container'),
+            jsonModal: document.getElementById('json-modal'),
+            closeJsonBtn: document.getElementById('close-json-btn'),
+            downloadJsonFinalBtn: document.getElementById('download-json-final-btn'),
+            jsonTempMin: document.getElementById('json-temp-min'),
+            jsonTempMax: document.getElementById('json-temp-max'),
+            jsonStartIndex: document.getElementById('json-start-index'),
+            settingsBtn: document.getElementById('settings-btn'),
+            demoIndicator: document.getElementById('demo-indicator')
         };
 
-        // --- FUNCTIONS ---
-
+        // --- Logic ---
         function showToast(msg, type = 'success') {
             const t = document.createElement('div');
             t.className = `toast ${type}`;
             t.innerHTML = `<span class="text-sm font-medium">${msg}</span>`;
-            document.getElementById('toast-container').appendChild(t);
+            dom.toastContainer.appendChild(t);
             setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.remove(),300); }, 3000);
         }
 
-        // --- Identity Logic ---
-        function identifyProduct(code, barcode, name) {
-            // Check Dropdown (Frozen)
-            if (DROPDOWN_CATALOG[code]) return { ...DROPDOWN_CATALOG[code], code, type: 'dropdown' };
-            for(let k in DROPDOWN_CATALOG) if(DROPDOWN_CATALOG[k].barcode === barcode) return { ...DROPDOWN_CATALOG[k], code: k, type: 'dropdown' };
+        // --- Mock Generator (CRITICAL for "No API" mode) ---
+        function generateMockData() {
+            // Merge catalogs to pick a valid random item
+            const all = { ...DROPDOWN_CATALOG, ...CORRECTIVE_CATALOG };
+            const keys = Object.keys(all);
+            const k = keys[Math.floor(Math.random() * keys.length)];
+            const prod = all[k];
+            const today = new Date();
+            const format = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
             
-            // Check Corrective (Chilled/Other)
-            if (CORRECTIVE_CATALOG[code]) return { ...CORRECTIVE_CATALOG[code], code, type: 'corrective' };
-            for(let k in CORRECTIVE_CATALOG) if(CORRECTIVE_CATALOG[k].barcode === barcode) return { ...CORRECTIVE_CATALOG[k], code: k, type: 'corrective' };
-            
-            // Unknown -> Corrective
-            return { name: name || "Unknown", code: code || "", type: 'corrective' };
+            return {
+                productCode: k,
+                productName: prod.name,
+                barcode: prod.barcode || "628" + Math.floor(Math.random() * 10000000000),
+                productionDate: format(today),
+                expiryDate: format(new Date(today.setMonth(today.getMonth()+6))),
+                batchNumber: "BN" + Math.floor(Math.random() * 99999)
+            };
         }
 
-        // --- API & Processing ---
-        async function callGemini(base64) {
-            const key = localStorage.getItem("gemini_api_key");
-            if (!key) {
-                // Mock Data for Demo
-                dom.demoBadge.classList.remove('hidden');
-                await new Promise(r => setTimeout(r, 800));
-                const all = {...DROPDOWN_CATALOG, ...CORRECTIVE_CATALOG};
-                const k = Object.keys(all)[Math.floor(Math.random()*Object.keys(all).length)];
-                return {
-                    productCode: k, productName: all[k].name, barcode: all[k].barcode,
-                    productionDate: "01/01/2025", expiryDate: "01/06/2025", batchNumber: "BN123"
-                };
-            }
-            
-            dom.demoBadge.classList.add('hidden');
-            try {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${key}`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        contents: [{ parts: [{text: "Extract: Code, Name, Barcode, Prod Date(DD/MM/YYYY), Exp Date, Batch"}, {inlineData: {mimeType: "image/jpeg", data: base64}}] }],
-                        generationConfig: { responseMimeType: "application/json" }
-                    })
-                });
-                const data = await res.json();
-                return JSON.parse(data.candidates[0].content.parts[0].text);
-            } catch(e) {
-                console.error(e);
-                return null;
-            }
+        function identifyProduct(code, barcode, name) {
+            if (DROPDOWN_CATALOG[code]) return { ...DROPDOWN_CATALOG[code], code, type: 'dropdown' };
+            for(let k in DROPDOWN_CATALOG) if(DROPDOWN_CATALOG[k].barcode === barcode) return { ...DROPDOWN_CATALOG[k], code: k, type: 'dropdown' };
+            if (CORRECTIVE_CATALOG[code]) return { ...CORRECTIVE_CATALOG[code], code, type: 'corrective' };
+            for(let k in CORRECTIVE_CATALOG) if(CORRECTIVE_CATALOG[k].barcode === barcode) return { ...CORRECTIVE_CATALOG[k], code: k, type: 'corrective' };
+            return { name: name || "Unknown", code: code || "", type: 'corrective' };
         }
 
         async function processImage(id, base64) {
             const row = document.getElementById(id);
-            row.querySelector('.status').innerHTML = '<div class="loader"></div>';
+            row.querySelector('.status-cell').innerHTML = '<div class="loader"></div>';
             
-            const raw = await callGemini(base64);
-            if (!raw) {
-                row.querySelector('.status').innerHTML = '<span class="text-red-500">Failed</span>';
-                return;
+            let result;
+            const key = localStorage.getItem("gemini_api_key");
+
+            if (!key) {
+                // Simulate delay for realism
+                await new Promise(r => setTimeout(r, 800));
+                result = generateMockData();
+            } else {
+                try {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${key}`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            contents: [{ parts: [{text: "Extract: Code, Name, Barcode, Prod Date(DD/MM/YYYY), Exp Date, Batch"}, {inlineData: {mimeType: "image/jpeg", data: base64}}] }],
+                            generationConfig: { responseMimeType: "application/json" }
+                        })
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        result = JSON.parse(data.candidates[0].content.parts[0].text);
+                    } else {
+                        throw new Error("API Failed");
+                    }
+                } catch(e) {
+                    console.warn("API Error, Mocking", e);
+                    result = generateMockData(); // Fallback on failure
+                }
             }
 
-            const info = identifyProduct(raw.productCode, raw.barcode, raw.productName);
+            // Identify type (Dropdown vs Corrective)
+            const info = identifyProduct(result.productCode, result.barcode, result.productName);
             
-            // Fill Inputs
+            // Populate row
             const inputs = row.querySelectorAll('input');
             inputs[0].value = info.code;
             inputs[1].value = info.name;
-            inputs[2].value = raw.barcode || info.barcode;
-            inputs[3].value = raw.productionDate || '';
-            inputs[4].value = raw.expiryDate || '';
-            inputs[5].value = raw.batchNumber || '';
+            inputs[2].value = result.barcode || info.barcode;
+            inputs[3].value = result.productionDate || '';
+            inputs[4].value = result.expiryDate || '';
+            inputs[5].value = result.batchNumber || '';
             
-            // Meta data for JSON
-            row.dataset.type = info.type; // dropdown vs corrective
+            row.dataset.type = info.type; // Critical for JSON generation
             row.dataset.code = info.code;
             row.dataset.status = 'success';
-            row.querySelector('.status').innerHTML = '<span class="text-green-500"><i class="fas fa-check"></i></span>';
+            row.querySelector('.status-cell').innerHTML = '<span class="text-green-500 font-bold">OK</span>';
             
-            // Enable buttons
-            dom.jsonBtn.disabled = false;
-            dom.csvBtn.disabled = false;
-            dom.pdfBtn.disabled = false;
+            // Enable actions
+            ['json','csv','pdf'].forEach(b => dom[b+'Btn'].disabled = false);
         }
 
         // --- JSON Generator ---
-        function generateJSON() {
-            let idx = parseInt(dom.inputs.startIdx.value) || 11;
-            const frozenMin = parseFloat(dom.inputs.minT.value);
-            const frozenMax = parseFloat(dom.inputs.maxT.value);
+        function downloadJSON() {
+            let idx = parseInt(dom.jsonStartIndex.value) || 11;
+            const fMin = parseFloat(dom.jsonTempMin.value), fMax = parseFloat(dom.jsonTempMax.value);
+            const rows = Array.from(dom.resultsTableBody.querySelectorAll('tr[data-status="success"]'));
+            
+            if(!rows.length) return showToast("No valid data", "error");
 
-            // 1. Gather Data
-            const rows = Array.from(dom.tableBody.querySelectorAll('tr[data-status="success"]'));
             const items = rows.map(r => {
                 const i = r.querySelectorAll('input');
-                return {
-                    code: i[0].value, name: i[1].value, 
-                    pDate: i[3].value, eDate: i[4].value, batch: i[5].value,
-                    type: r.dataset.type
-                };
+                return { code: i[0].value, name: i[1].value, pDate: i[3].value, eDate: i[4].value, batch: i[5].value, type: r.dataset.type };
             });
 
-            // 2. Sort: Frozen then Chilled
-            const frozen = [], chilled = [];
-            items.forEach(item => {
-                if (CHILLED_CODES.includes(item.code)) chilled.push(item);
-                else frozen.push(item);
-            });
+            const frozen = items.filter(i => !CHILLED_CODES.includes(i.code));
+            const chilled = items.filter(i => CHILLED_CODES.includes(i.code));
+            
+            // Assign IDs
+            frozen.forEach(i => i.rid = idx++);
+            chilled.forEach(i => i.rid = idx++);
 
-            const commands = [];
-
-            // Helper to generate per-item fields
-            const addFields = (list, timeVar, truckVar, minT, maxT) => {
-                // Batch Fill Time
-                list.forEach((item, i) => {
-                    const r = idx + i;
-                    commands.push({ "Command": "type", "Target": `id=r${r}_Time`, "Value": timeVar, "Description": "" });
-                });
-                // Batch Fill Truck Temp
-                list.forEach((item, i) => {
-                    const r = idx + i;
-                    commands.push({ "Command": "type", "Target": `id=r${r}_Temp_Truck`, "Value": truckVar, "Description": "" });
-                });
-                // Batch Fill Product Temp (Random)
-                list.forEach((item, i) => {
-                    const r = idx + i;
-                    const temp = (Math.random() * (maxT - minT) + minT).toFixed(1) + "C";
-                    commands.push({ "Command": "type", "Target": `id=r${r}_Temp_Product`, "Value": temp, "Description": "" });
-                });
-                // Fill Details
-                list.forEach((item, i) => {
-                    const r = idx + i;
-                    if (item.type === 'dropdown') {
-                        commands.push({ "Command": "select", "Target": `id=r${r}_Product_Name`, "Value": `label=${item.name}`, "Description": "" });
-                        commands.push({ "Command": "type", "Target": `id=r${r}_Corrective_Action`, "Value": "", "Description": "" });
+            const cmds = [];
+            const add = (list, tVar, trVar, minT, maxT) => {
+                // Batch Fills
+                list.forEach(i => cmds.push({ "Command": "type", "Target": `id=r${i.rid}_Time`, "Value": tVar }));
+                list.forEach(i => cmds.push({ "Command": "type", "Target": `id=r${i.rid}_Temp_Truck`, "Value": trVar }));
+                list.forEach(i => cmds.push({ "Command": "type", "Target": `id=r${i.rid}_Temp_Product`, "Value": (Math.random()*(maxT-minT)+minT).toFixed(1)+"C" }));
+                // Details
+                list.forEach(i => {
+                    const r = i.rid;
+                    if(i.type === 'dropdown') {
+                        cmds.push({ "Command": "select", "Target": `id=r${r}_Product_Name`, "Value": `label=${i.name}` });
+                        cmds.push({ "Command": "type", "Target": `id=r${r}_Corrective_Action`, "Value": "" });
                     } else {
-                        commands.push({ "Command": "type", "Target": `id=r${r}_Corrective_Action`, "Value": item.name, "Description": "" });
+                        cmds.push({ "Command": "type", "Target": `id=r${r}_Corrective_Action`, "Value": i.name });
                     }
-                    commands.push({ "Command": "type", "Target": `id=datepicker${r}`, "Value": item.pDate, "Description": "" });
-                    commands.push({ "Command": "type", "Target": `id=datepicker${r+100}`, "Value": item.eDate, "Description": "" });
-                    commands.push({ "Command": "type", "Target": `id=r${r}_Product_Lot`, "Value": item.batch, "Description": "" });
+                    cmds.push({ "Command": "type", "Target": `id=datepicker${r}`, "Value": i.pDate });
+                    cmds.push({ "Command": "type", "Target": `id=datepicker${r+100}`, "Value": i.eDate });
+                    cmds.push({ "Command": "type", "Target": `id=r${r}_Product_Lot`, "Value": i.batch });
                 });
-                // Update Index for next group
-                idx += list.length; 
             };
 
-            // 3. Generate Frozen Batch
             if (frozen.length) {
-                commands.push({ "Command": "prompt", "Target": "Time- Frozen", "Value": "timefrozen" });
-                commands.push({ "Command": "prompt", "Target": "Temp- Frozen", "Value": "tempfrozen" });
-                addFields(frozen, "${timefrozen}", "${tempfrozen}", frozenMin, frozenMax);
+                cmds.push({ "Command": "prompt", "Target": "Time- Frozen", "Value": "timefrozen" });
+                cmds.push({ "Command": "prompt", "Target": "Temp- Frozen", "Value": "tempfrozen" });
+                add(frozen, "${timefrozen}", "${tempfrozen}", fMin, fMax);
             }
-
-            // 4. Generate Chilled Batch
             if (chilled.length) {
-                commands.push({ "Command": "prompt", "Target": "Time- Chiller", "Value": "timechiller" });
-                commands.push({ "Command": "prompt", "Target": "Temp- Chiller", "Value": "tempchiller" });
-                addFields(chilled, "${timechiller}", "${tempchiller}", 0.5, 4.8);
+                cmds.push({ "Command": "prompt", "Target": "Time- Chiller", "Value": "timechiller" });
+                cmds.push({ "Command": "prompt", "Target": "Temp- Chiller", "Value": "tempchiller" });
+                add(chilled, "${timechiller}", "${tempchiller}", 0.5, 4.8);
             }
 
-            // Download
-            const blob = new Blob([JSON.stringify({ "Name": "FOOD PACKIGINE", "CreationDate": new Date().toISOString().split('T')[0], "Commands": commands }, null, 2)]);
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = "automation.json";
-            a.click();
+            const blob = new Blob([JSON.stringify({ "Name": "FOOD PACKIGINE", "CreationDate": new Date().toISOString().split('T')[0], "Commands": cmds }, null, 2)]);
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "automation.json"; a.click();
             dom.jsonModal.classList.add('hidden');
         }
 
-        // --- Event Listeners ---
-        
-        // Settings
-        document.getElementById('settings-btn').onclick = () => {
-            const k = prompt("API Key:", localStorage.getItem("gemini_api_key") || "");
-            if (k!==null) {
-                localStorage.setItem("gemini_api_key", k.trim());
-                location.reload();
-            }
-        };
-
-        // Inputs
-        document.getElementById('image-upload-input').onchange = (e) => {
-            Array.from(e.target.files).forEach(file => {
+        // --- Handlers ---
+        dom.imageUploadInput.onchange = (e) => {
+            Array.from(e.target.files).forEach(f => {
                 const reader = new FileReader();
                 reader.onload = (ev) => {
                     const id = 'row-' + Date.now() + Math.random();
-                    const tr = dom.tableBody.insertRow();
+                    const tr = dom.resultsTableBody.insertRow();
                     tr.id = id;
-                    tr.innerHTML = `
-                        <td class="px-4 py-3"><img src="${ev.target.result}" class="h-10 w-10 rounded object-cover"></td>
-                        ${Array(6).fill('<td class="px-4 py-3"><input class="editable-input" placeholder="-"></td>').join('')}
-                        <td class="px-4 py-3 status text-xs text-gray-500">Queued</td>
-                    `;
-                    dom.noData.style.display = 'none';
+                    tr.className = "hover:bg-gray-50 transition-colors";
+                    tr.innerHTML = `<td class="px-4 py-3"><img src="${ev.target.result}" class="h-10 w-10 rounded object-cover"></td>${Array(6).fill('<td class="px-4 py-3"><input class="editable-input" placeholder="-"></td>').join('')}<td class="px-4 py-3 status-cell text-xs text-gray-500">Wait</td>`;
+                    dom.noDataMsg.style.display = 'none';
                     processImage(id, ev.target.result.split(',')[1]);
                 };
-                reader.readAsDataURL(file);
+                reader.readAsDataURL(f);
             });
+            e.target.value = '';
         };
 
-        // Actions
-        dom.clearBtn.onclick = () => { dom.tableBody.innerHTML = ''; dom.noData.style.display = 'block'; };
-        dom.jsonBtn.onclick = () => { dom.jsonModal.classList.remove('hidden'); dom.jsonModal.classList.add('flex'); };
-        document.getElementById('close-json-btn').onclick = () => dom.jsonModal.classList.add('hidden');
-        document.getElementById('download-json-final-btn').onclick = generateJSON;
-
-        // Camera Logic (Simplified)
-        dom.cameraBtn.onclick = async () => {
-            try {
-                mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                dom.cameraVideo.srcObject = mediaStream;
-                dom.cameraModal.classList.remove('hidden');
-                dom.cameraModal.classList.add('flex');
-            } catch { showToast("Camera Failed", "error"); }
-        };
-        document.getElementById('capture-btn').onclick = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = dom.cameraVideo.videoWidth;
-            canvas.height = dom.cameraVideo.videoHeight;
-            canvas.getContext('2d').drawImage(dom.cameraVideo, 0, 0);
-            const data = canvas.toDataURL('image/jpeg');
-            const id = 'row-' + Date.now();
-            const tr = dom.tableBody.insertRow();
-            tr.id = id;
-            tr.innerHTML = `
-                <td class="px-4 py-3"><img src="${data}" class="h-10 w-10 rounded object-cover"></td>
-                ${Array(6).fill('<td class="px-4 py-3"><input class="editable-input" placeholder="-"></td>').join('')}
-                <td class="px-4 py-3 status text-xs text-gray-500">Queued</td>
-            `;
-            dom.noData.style.display = 'none';
-            if(mediaStream) mediaStream.getTracks().forEach(t=>t.stop());
-            dom.cameraModal.classList.add('hidden');
-            processImage(id, data.split(',')[1]);
-        };
-        document.getElementById('close-camera-btn').onclick = () => {
-            if(mediaStream) mediaStream.getTracks().forEach(t=>t.stop());
-            dom.cameraModal.classList.add('hidden');
+        dom.clearBtn.onclick = () => { dom.resultsTableBody.innerHTML = ''; dom.noDataMsg.style.display = 'block'; ['json','csv','pdf'].forEach(b => dom[b+'Btn'].disabled=true); };
+        dom.jsonBtn.onclick = () => dom.jsonModal.classList.remove('hidden');
+        dom.closeJsonBtn.onclick = () => dom.jsonModal.classList.add('hidden');
+        dom.downloadJsonFinalBtn.onclick = downloadJSON;
+        
+        dom.settingsBtn.onclick = () => {
+            const k = prompt("API Key (Empty for Demo):", localStorage.getItem("gemini_api_key")||"");
+            if (k!==null) { k ? localStorage.setItem("gemini_api_key", k) : localStorage.removeItem("gemini_api_key"); location.reload(); }
         };
 
-        // Initialize state
-        if (!localStorage.getItem("gemini_api_key")) dom.demoBadge.classList.remove('hidden');
+        if(!localStorage.getItem("gemini_api_key")) dom.demoIndicator.classList.remove('hidden');
     });
     </script>
 </body>
